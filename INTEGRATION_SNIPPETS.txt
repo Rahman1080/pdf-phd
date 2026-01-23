@@ -1,0 +1,82 @@
+// ============================================
+// QUICK INTEGRATION SNIPPETS
+// Copy-paste these into App.tsx
+// ============================================
+
+// ─────────────────────────────────────────
+// 1. ADD IMPORT (at top of App.tsx, around line 50)
+// ─────────────────────────────────────────
+
+import { handleVisualHTMLExport } from './utils/visualHtmlHandler';
+
+
+// ─────────────────────────────────────────
+// 2. UPDATE ExportTextModal FORMATS (around line 1200)
+// ─────────────────────────────────────────
+
+const formats = [
+  { id: 'txt' as const, label: 'Plain Text', icon: '📝', desc: 'Simple text, no formatting' },
+  { id: 'md' as const, label: 'Markdown', icon: '📄', desc: 'With headings and links' },
+  { id: 'html' as const, label: 'HTML (Text)', icon: '🌐', desc: 'Text extraction with styles' },
+  { id: 'visual-html' as const, label: 'HTML (Visual)', icon: '🖼️', desc: 'Page images - preserves everything' },
+];
+
+
+// ─────────────────────────────────────────
+// 3. UPDATE TYPE IN ExportTextModal (around line 1196)
+// ─────────────────────────────────────────
+
+const [format, setFormat] = useState<'txt' | 'md' | 'html' | 'visual-html'>('txt');
+
+
+// ─────────────────────────────────────────
+// 4. UPDATE FUNCTION SIGNATURE (around line 1195)
+// ─────────────────────────────────────────
+
+function ExportTextModal({ onExport, onClose }: { 
+  onExport: (format: 'txt' | 'md' | 'html' | 'visual-html', options: { preserveLayout: boolean; includeImages: boolean }) => void; 
+  onClose: () => void 
+}) {
+
+
+// ─────────────────────────────────────────
+// 5. UPDATE handleExportText SIGNATURE (around line 3332)
+// ─────────────────────────────────────────
+
+const handleExportText = async (format: 'txt' | 'md' | 'html' | 'visual-html', options: { preserveLayout: boolean; includeImages: boolean }) => {
+
+
+// ─────────────────────────────────────────
+// 6. ADD THIS AT THE START OF handleExportText (around line 3335)
+// ─────────────────────────────────────────
+
+  const activePdf = pdf;
+  if (!activePdf) return;
+
+  // Handle visual HTML export with image rendering
+  if (format === 'visual-html') {
+    return handleVisualHTMLExport(pdf, setProgress, setShowExportTextModal, onDownload);
+  }
+
+  // Continue with text-based exports...
+  setProgress('Extracting text and analyzing layout...');
+
+
+// ============================================
+// THAT'S IT! 🎉
+// ============================================
+
+// Now when users click Export+ → they'll see 4 options:
+// 📝 Plain Text
+// 📄 Markdown  
+// 🌐 HTML (Text)
+// 🖼️ HTML (Visual) ← NEW! Preserves images & layout
+
+// Test it:
+// 1. Load a PDF with images
+// 2. Click Export+ button
+// 3. Select "HTML (Visual)"
+// 4. Check "Preserve paragraph layout"
+// 5. Click Export
+// 6. Open the downloaded .html file
+// 7. See perfect visual preservation! ✨

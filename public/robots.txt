@@ -1,0 +1,30 @@
+# PDF PhD Robots.txt
+# https://pdfphd.com
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://pdfphd.com/sitemap.xml
+
+# Disallow temporary/private paths
+Disallow: /api/
+Disallow: /_debug/
+Disallow: /admin/
+Disallow: /*.json$
+
+# Allow all major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Yandexbot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /

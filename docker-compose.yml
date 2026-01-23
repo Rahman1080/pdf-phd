@@ -1,0 +1,25 @@
+services:
+  pdf-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: pdf-phd-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - pdf-temp:/tmp/pdf-studio
+    restart: always
+
+  pdf-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: pdf-phd-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - pdf-backend
+    restart: always
+
+volumes:
+  pdf-temp:

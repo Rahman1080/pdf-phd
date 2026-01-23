@@ -1,0 +1,50 @@
+# Dockerfile for PDF Studio Backend
+# -------------------------------
+# This image includes:
+# 1. Node.js 18
+# 2. LibreOffice (for Office -> PDF)
+# 3. Python 3 + conversion libraries (for PDF -> Office)
+
+FROM node:18-bullseye-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libreoffice-common \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
+    python3 \
+    python3-pip \
+    python3-venv \
+    default-jre-headless \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python libraries
+RUN pip3 install --no-cache-dir \
+    pdf2docx \
+    tabula-py \
+    pandas \
+    openpyxl \
+    PyMuPDF \
+    python-pptx \
+    Pillow
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files and install node dependencies
+COPY package*.json ./
+RUN npm install express multer cors
+
+# Copy server code
+COPY server-enhanced.js ./
+
+# Create temp directories as expected by the server
+RUN mkdir -p /tmp/pdf-studio/uploads /tmp/pdf-studio/converted && chmod -R 777 /tmp/pdf-studio
+
+# Expose the backend port
+EXPOSE 3001
+
+# Start the server
+CMD ["node", "server-enhanced.js"]
