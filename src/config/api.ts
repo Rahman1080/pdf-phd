@@ -14,22 +14,14 @@
 // Option 3: Development mode (local server)
 // export const API_BASE = 'http://localhost:3001';
 
-// Current configuration - CHANGE THIS TO YOUR VPS
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
 // Set your Hostinger VPS details here:
+const VPS_IP = '76.13.24.46';
 const VPS_PORT = '3001';
 
 // Dynamic API URL based on current hostname
-// This allows the app to work on both the IP and any domain you point to it
-const DYNAMIC_VPS_URL = `${window.location.protocol}//${window.location.hostname}:${VPS_PORT}`;
+const DYNAMIC_VPS_URL = `http://${VPS_IP}:${VPS_PORT}`;
 
-// ALWAYS use VPS for conversions (LibreOffice required)
-const ALWAYS_USE_VPS = true;
-
-export const API_BASE = (isDevelopment && !ALWAYS_USE_VPS)
-    ? 'http://localhost:3001'  // Local development
-    : DYNAMIC_VPS_URL;          // Production (your VPS)
+export const API_BASE = DYNAMIC_VPS_URL;          // Production (your VPS)
 
 // ============================================
 // API Endpoints
