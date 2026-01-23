@@ -1,7 +1,7 @@
 # Dockerfile for PDF Studio Frontend
 # --------------------------------
 # Stage 1: Build the React application
-FROM node:18-bullseye-slim AS build
+FROM node:20-bullseye-slim AS build
 
 WORKDIR /app
 
