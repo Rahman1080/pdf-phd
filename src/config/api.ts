@@ -15,13 +15,12 @@
 // export const API_BASE = 'http://localhost:3001';
 
 // Set your Hostinger VPS details here:
-const VPS_IP = '76.13.24.46';
-const VPS_PORT = '3001';
+const DOMAIN = 'pdfphd.com';
 
-// Dynamic API URL based on current hostname
-const DYNAMIC_VPS_URL = `http://${VPS_IP}:${VPS_PORT}`;
+// Dynamic API URL using the domain and /api path
+const DYNAMIC_VPS_URL = `https://${DOMAIN}/api`;
 
-export const API_BASE = DYNAMIC_VPS_URL;          // Production (your VPS)
+export const API_BASE = DYNAMIC_VPS_URL;          // Production (your domain)
 
 // ============================================
 // API Endpoints
