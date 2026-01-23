@@ -35,7 +35,7 @@ WORKDIR /app
 
 # Copy package files and install node dependencies
 COPY package*.json ./
-RUN npm install express multer cors
+RUN npm install --legacy-peer-deps express multer cors
 
 # Copy server code
 COPY server-enhanced.js ./
