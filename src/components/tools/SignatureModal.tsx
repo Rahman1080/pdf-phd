@@ -569,7 +569,7 @@ export function SignatureModal({ onSave, onClose, documentName }: SignatureModal
 
                         <button
                             className="w-full py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
-                            onClick={() => window.open('mailto:support@pdfphd.com?subject=Notarization Request', '_blank')}
+                            onClick={() => window.open('mailto:pdfphd247@gmail.com?subject=Notarization Request', '_blank')}
                         >
                             Contact for Notarization
                         </button>

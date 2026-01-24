@@ -18,7 +18,8 @@ import {
   HelpArticle,
   Contact,
   Privacy,
-  Terms
+  Terms,
+  Community
 } from './pages'
 
 // Workplace (the main editor - previously App.tsx)
@@ -74,7 +75,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/terms" element={<Terms />} />
 
           {/* Other routes */}
-          <Route path="/community" element={<NotFound />} />
+          <Route path="/community" element={<Community />} />
           <Route path="/sitemap" element={<NotFound />} />
 
           {/* 404 Catch-all */}

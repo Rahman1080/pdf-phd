@@ -161,8 +161,8 @@ export function Privacy() {
                         </p>
                         <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-900 border border-white/5">
                             <Mail className="w-5 h-5 text-primary-400" />
-                            <a href="mailto:privacy@pdfphd.com" className="text-primary-400 hover:underline">
-                                privacy@pdfphd.com
+                            <a href="mailto:pdfphd247@gmail.com" className="text-primary-400 hover:underline">
+                                pdfphd247@gmail.com
                             </a>
                         </div>
                     </section>

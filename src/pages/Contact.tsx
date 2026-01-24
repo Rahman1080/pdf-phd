@@ -1,7 +1,8 @@
 // Contact Page with Form
 import { useState } from 'react';
-import { Mail, MessageSquare, Send, CheckCircle, Building, HelpCircle, Bug, Lightbulb } from 'lucide-react';
+import { Mail, MessageSquare, Send, CheckCircle, Building, HelpCircle, Bug, Lightbulb, AlertCircle } from 'lucide-react';
 import { Layout, SEOHead, getBreadcrumbSchema } from '../components/layout';
+import emailjs from '@emailjs/browser';
 
 type ContactReason = 'general' | 'support' | 'enterprise' | 'bug' | 'feature';
 
@@ -13,6 +14,15 @@ const contactReasons = [
     { id: 'feature' as ContactReason, label: 'Feature Request', icon: Lightbulb },
 ];
 
+// EmailJS Configuration - You need to set these up at emailjs.com
+// 1. Create free account at https://emailjs.com
+// 2. Create email service (connect your gmail)
+// 3. Create email template with variables: from_name, from_email, subject, message, reason
+// 4. Replace these values with your actual keys
+const EMAILJS_SERVICE_ID = 'service_pdfphd'; // Create this at emailjs.com
+const EMAILJS_TEMPLATE_ID = 'template_contact'; // Create this at emailjs.com  
+const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY'; // Get this from emailjs.com Account > API Keys
+
 export function Contact() {
     const [formData, setFormData] = useState({
         name: '',
@@ -23,6 +33,7 @@ export function Contact() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const breadcrumbSchema = getBreadcrumbSchema([
         { name: 'Home', url: 'https://pdfphd.com' },
@@ -32,12 +43,49 @@ export function Contact() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setError(null);
 
-        // Simulate form submission - In production, this would send to an API
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Find the reason label
+        const reasonLabel = contactReasons.find(r => r.id === formData.reason)?.label || formData.reason;
 
-        setIsSubmitting(false);
-        setIsSubmitted(true);
+        try {
+            // Try EmailJS first (if configured)
+            if (EMAILJS_PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
+                await emailjs.send(
+                    EMAILJS_SERVICE_ID,
+                    EMAILJS_TEMPLATE_ID,
+                    {
+                        from_name: formData.name,
+                        from_email: formData.email,
+                        subject: formData.subject,
+                        message: formData.message,
+                        reason: reasonLabel,
+                        to_email: 'pdfphd247@gmail.com'
+                    },
+                    EMAILJS_PUBLIC_KEY
+                );
+                setIsSubmitted(true);
+            } else {
+                // Fallback: Open mailto link with pre-filled content
+                const mailtoSubject = encodeURIComponent(`[${reasonLabel}] ${formData.subject}`);
+                const mailtoBody = encodeURIComponent(
+                    `Name: ${formData.name}\nEmail: ${formData.email}\nReason: ${reasonLabel}\n\nMessage:\n${formData.message}`
+                );
+                const mailtoLink = `mailto:pdfphd247@gmail.com?subject=${mailtoSubject}&body=${mailtoBody}`;
+
+                // Open email client
+                window.location.href = mailtoLink;
+
+                // Show success after a brief delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                setIsSubmitted(true);
+            }
+        } catch (err) {
+            console.error('Failed to send message:', err);
+            setError('Failed to send message. Please try emailing us directly at pdfphd247@gmail.com');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -112,8 +160,8 @@ export function Contact() {
                                                 <Mail className="w-5 h-5 text-primary-400" />
                                                 <span className="font-medium text-white">Email</span>
                                             </div>
-                                            <a href="mailto:support@pdfphd.com" className="text-sm text-surface-400 hover:text-primary-400">
-                                                support@pdfphd.com
+                                            <a href="mailto:pdfphd247@gmail.com" className="text-sm text-surface-400 hover:text-primary-400">
+                                                pdfphd247@gmail.com
                                             </a>
                                         </div>
                                         <div className="p-4 rounded-xl bg-surface-900 border border-white/5">
@@ -152,8 +200,8 @@ export function Contact() {
                                                 type="button"
                                                 onClick={() => setFormData(prev => ({ ...prev, reason: reason.id }))}
                                                 className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium transition-all ${formData.reason === reason.id
-                                                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
-                                                        : 'bg-surface-800 text-surface-400 border border-white/5 hover:bg-surface-700'
+                                                    ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
+                                                    : 'bg-surface-800 text-surface-400 border border-white/5 hover:bg-surface-700'
                                                     }`}
                                             >
                                                 <reason.icon className="w-4 h-4" />
@@ -230,6 +278,22 @@ export function Contact() {
                                         placeholder="Tell us more about how we can help..."
                                     />
                                 </div>
+
+                                {/* Error Display */}
+                                {error && (
+                                    <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-red-400 text-sm">{error}</p>
+                                            <a
+                                                href="mailto:pdfphd247@gmail.com"
+                                                className="text-primary-400 hover:underline text-sm mt-1 inline-block"
+                                            >
+                                                Click here to email directly
+                                            </a>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Submit */}
                                 <button

@@ -62,6 +62,7 @@ const navigation: NavItem[] = [
     },
     { label: 'Blog', href: '/blog', icon: BookOpen },
     { label: 'Help', href: '/help', icon: HelpCircle },
+    { label: 'Privacy Policy', href: '/privacy', icon: Lock },
 ];
 
 export function Header() {
@@ -91,14 +92,11 @@ export function Header() {
                 <div className="flex items-center justify-between h-16 lg:h-20">
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-3 group">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-purple-500 rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity" />
-                            <img
-                                src="/logo-phd.png"
-                                alt="PDF PhD"
-                                className="h-10 w-auto rounded-xl relative transition-transform group-hover:scale-110"
-                            />
-                        </div>
+                        <img
+                            src="/favicon.png"
+                            alt="PDF PhD"
+                            className="h-14 w-14 transition-transform group-hover:scale-110 object-contain"
+                        />
                         <span className="font-bold text-xl text-white hidden sm:block">
                             PDF <span className="bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">PhD</span>
                         </span>

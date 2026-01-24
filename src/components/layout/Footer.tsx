@@ -51,9 +51,9 @@ export function Footer() {
                     <div className="col-span-2 md:col-span-4 lg:col-span-1 mb-8 lg:mb-0">
                         <Link to="/" className="flex items-center gap-3 mb-4">
                             <img
-                                src="/logo-phd.png"
+                                src="/favicon.png"
                                 alt="PDF PhD"
-                                className="h-12 w-auto rounded-xl"
+                                className="h-14 w-14 object-contain"
                             />
                             <div>
                                 <span className="font-bold text-lg text-white block">
@@ -87,7 +87,7 @@ export function Footer() {
                                 <Github className="w-5 h-5" />
                             </a>
                             <a
-                                href="mailto:support@pdfphd.com"
+                                href="mailto:pdfphd247@gmail.com"
                                 className="p-2 bg-white/5 hover:bg-primary-500/20 rounded-xl text-surface-400 hover:text-primary-400 transition-all"
                             >
                                 <Mail className="w-5 h-5" />

@@ -9,3 +9,4 @@ export { HelpArticle } from './HelpArticle';
 export { Privacy } from './Privacy';
 export { Terms } from './Terms';
 export { Contact } from './Contact';
+export { Community } from './Community';
