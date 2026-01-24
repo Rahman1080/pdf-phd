@@ -4,6 +4,7 @@ import {
     X, Plus, Trash2, Star, Clock, Search, Upload,
     Stamp, FileSignature, Type, Image, Package
 } from 'lucide-react';
+import { generateId } from '../utils/helpers';
 
 interface Asset {
     id: string;
@@ -80,7 +81,7 @@ export function StampsLibrary({ onClose, onSelectAsset }: StampsLibraryProps) {
         if (!newAssetName.trim() || !newAssetContent.trim()) return;
 
         const newAsset: Asset = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: newAssetType,
             name: newAssetName,
             content: newAssetContent,

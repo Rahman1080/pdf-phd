@@ -1,4 +1,5 @@
 import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib';
+import { generateId } from './helpers';
 
 // ============================================
 // XML/XMP Metadata Export
@@ -362,16 +363,7 @@ export async function exportToEPUB(
     const chapters: { title: string; imageBlob: Blob; width: number; height: number }[] = [];
 
     // Helper for generating unique IDs (fallback for non-secure origins)
-    const getUUID = () => {
-        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-            return crypto.randomUUID();
-        }
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    };
+    const getUUID = () => generateId();
 
     const bookUUID = getUUID();
 

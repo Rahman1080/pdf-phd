@@ -1,6 +1,7 @@
 // Version History & Autosave Service
 import { useState, useEffect } from 'react';
 import { X, Clock, RotateCcw, Trash2, Save, History } from 'lucide-react';
+import { generateId } from '../utils/helpers';
 
 interface Version {
     id: string;
@@ -26,7 +27,7 @@ const AUTOSAVE_INTERVAL = 60000; // 1 minute
 export const versionService = {
     saveVersion: (documentId: string, data: ArrayBuffer, label?: string): Version => {
         const version: Version = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             timestamp: new Date(),
             label,
             fileSize: data.byteLength,

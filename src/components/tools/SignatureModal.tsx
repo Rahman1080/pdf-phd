@@ -71,14 +71,30 @@ export function SignatureModal({ onSave, onClose, documentName }: SignatureModal
     }, [fullName]);
 
     // Listen for signature completion from other devices
+    // Listen for remote signature
     useEffect(() => {
         if (session && (advancedMode === 'qr' || advancedMode === 'link' || advancedMode === 'email')) {
+            // 1. PeerJS for real-time cross-device communication
+            const unsubscribePeer = SignatureService.initPeerSession(
+                session.id,
+                () => {
+                    console.log('Remote device connected via PeerJS!');
+                },
+                (signatureDataUrl, signerName) => {
+                    console.log('Signature received via PeerJS!', signerName);
+                    onSave(signatureDataUrl);
+                    onClose();
+                }
+            );
+
+            // 2. BroadcastChannel for same-tab communication
             const unsubscribe1 = SignatureService.onSignatureComplete(session.id, (signatureDataUrl, signerName) => {
                 console.log('Signature received from remote device!', signerName);
                 onSave(signatureDataUrl);
                 onClose();
             });
 
+            // 3. Polling as final fallback
             const unsubscribe2 = SignatureService.pollForSignatureCompletion(session.id, (signatureDataUrl, signerName) => {
                 console.log('Signature received via polling!', signerName);
                 onSave(signatureDataUrl);
@@ -86,6 +102,7 @@ export function SignatureModal({ onSave, onClose, documentName }: SignatureModal
             });
 
             return () => {
+                unsubscribePeer();
                 unsubscribe1();
                 unsubscribe2();
             };

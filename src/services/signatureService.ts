@@ -1,26 +1,23 @@
-// Signature Service - Handles remote signing, QR codes, and signature sessions
+import Peer from 'peerjs';
 import QRCode from 'qrcode';
+import { generateId } from '../utils/helpers';
 
 export interface SignatureSession {
     id: string;
-    documentId?: string;
-    documentName?: string;
-    createdAt: Date;
-    expiresAt: Date;
+    createdAt: number;
+    expiresAt: number;
     status: 'pending' | 'signed' | 'expired';
     signatureDataUrl?: string;
     signerName?: string;
-    signerEmail?: string;
+    documentName?: string;
 }
 
-// Store sessions in memory (in production, use a database)
 const sessions: Map<string, SignatureSession> = new Map();
-
-// Broadcast channel for real-time updates
 let broadcastChannel: BroadcastChannel | null = null;
+let peerInstance: Peer | null = null;
 
 /**
- * Initialize the broadcast channel for cross-tab communication
+ * Initializes the broadcast channel for same-browser communication
  */
 export function initSignatureChannel(): BroadcastChannel {
     if (!broadcastChannel) {
@@ -30,46 +27,221 @@ export function initSignatureChannel(): BroadcastChannel {
 }
 
 /**
- * Generate a unique session ID
+ * Initializes PeerJS for a session (as a sender/host)
  */
-function generateSessionId(): string {
-    return `sig_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+export function initPeerSession(sessionId: string, onConnected: () => void, onSignature: (dataUrl: string, name?: string) => void): () => void {
+    if (peerInstance) {
+        peerInstance.destroy();
+    }
+
+    console.log('[SignatureService] Initializing Peer host for session:', sessionId);
+
+    // Use a shortened version of the UUID for Peer ID to ensure compatibility
+    // PeerJS IDs are better when shorter and alphanumeric
+    const peerId = `phd-sign-${sessionId.split('-')[0]}`;
+
+    peerInstance = new Peer(peerId, {
+        debug: 1,
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.relay.metered.ca:80' }
+            ]
+        }
+    });
+
+    peerInstance.on('open', (id) => {
+        console.log('[SignatureService] Peer host ready with ID:', id);
+    });
+
+    peerInstance.on('connection', (conn) => {
+        console.log('[SignatureService] Incoming connection from remote signer');
+        onConnected();
+
+        conn.on('data', (data: any) => {
+            console.log('[SignatureService] Received peer data:', data.type);
+            if (data.type === 'signature_completed' && data.signatureDataUrl) {
+                onSignature(data.signatureDataUrl, data.signerName);
+
+                // Also update local state for consistency
+                completeSignatureSession(sessionId, data.signatureDataUrl, data.signerName);
+            }
+        });
+    });
+
+    peerInstance.on('error', (err) => {
+        console.warn('[SignatureService] Peer host error:', err.type);
+    });
+
+    return () => {
+        if (peerInstance) {
+            peerInstance.destroy();
+            peerInstance = null;
+        }
+    };
 }
 
 /**
- * Create a new signature session
+ * Connects to a host session as a signer (recipient)
+ */
+export function connectAsSigner(sessionId: string, onReady: () => void): { sendSignature: (dataUrl: string, name?: string) => void, disconnect: () => void } | null {
+    const peerId = `phd-sign-${sessionId.split('-')[0]}`;
+    const remotePeer = new Peer({
+        debug: 1,
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.relay.metered.ca:80' }
+            ]
+        }
+    });
+
+    let activeConn: any = null;
+
+    remotePeer.on('open', () => {
+        console.log('[SignatureService] Remote signer peer open, connecting to host...');
+        const conn = remotePeer.connect(peerId, {
+            reliable: true
+        });
+
+        conn.on('open', () => {
+            console.log('[SignatureService] Connected to host session');
+            activeConn = conn;
+            onReady();
+        });
+
+        conn.on('error', (err) => {
+            console.error('[SignatureService] Connection error:', err);
+        });
+    });
+
+    return {
+        sendSignature: (signatureDataUrl: string, signerName?: string) => {
+            if (activeConn && activeConn.open) {
+                activeConn.send({
+                    type: 'signature_completed',
+                    signatureDataUrl,
+                    signerName
+                });
+
+                // Also try same-device completion if applicable
+                completeSignatureSession(sessionId, signatureDataUrl, signerName);
+                return true;
+            } else {
+                // If peer is not open, at least try localStorage/Broadcast
+                return completeSignatureSession(sessionId, signatureDataUrl, signerName);
+            }
+        },
+        disconnect: () => {
+            remotePeer.destroy();
+        }
+    };
+}
+
+/**
+ * Creates a new signature session
  */
 export function createSignatureSession(documentName?: string): SignatureSession {
     const session: SignatureSession = {
-        id: generateSessionId(),
-        documentName,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        status: 'pending'
+        id: generateId(),
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+        status: 'pending',
+        documentName
     };
 
     sessions.set(session.id, session);
 
-    // Store in localStorage for persistence across tabs
+    // Save to localStorage
     try {
         const storedSessions = JSON.parse(localStorage.getItem('pdf_signature_sessions') || '[]');
         storedSessions.push(session);
-        localStorage.setItem('pdf_signature_sessions', JSON.stringify(storedSessions));
+        localStorage.setItem('pdf_signature_sessions', JSON.stringify(storedSessions.slice(-10))); // Only keep last 10
     } catch (e) {
-        console.warn('Could not persist signature session:', e);
+        console.warn('Could not save signature session:', e);
     }
 
     return session;
 }
 
 /**
- * Get a signature session by ID
+ * Gets the full signing URL for a session
+ */
+export function getSigningUrl(sessionId: string): string {
+    return `${window.location.origin}/sign/${sessionId}`;
+}
+
+/**
+ * Generates a QR Code data URL for a session
+ */
+export async function generateSigningQRCode(sessionId: string): Promise<string> {
+    const url = getSigningUrl(sessionId);
+    return await QRCode.toDataURL(url, {
+        width: 400,
+        margin: 2,
+        color: {
+            dark: '#4f46e5',
+            light: '#ffffff',
+        },
+    });
+}
+
+/**
+ * Copies the signing link to the clipboard
+ */
+export async function copySigningLink(sessionId: string): Promise<boolean> {
+    try {
+        const url = getSigningUrl(sessionId);
+        await navigator.clipboard.writeText(url);
+        return true;
+    } catch (err) {
+        console.error('Failed to copy link:', err);
+        return false;
+    }
+}
+
+/**
+ * Uses the system share API for the signing link
+ */
+export async function shareSigningLink(sessionId: string, documentName?: string): Promise<void> {
+    const url = getSigningUrl(sessionId);
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'Sign Document',
+                text: `Please sign "${documentName || 'the document'}" using the link below:`,
+                url: url,
+            });
+        } catch (err) {
+            console.warn('Share cancelled or failed:', err);
+        }
+    } else {
+        copySigningLink(sessionId);
+    }
+}
+
+/**
+ * Opens email client with pre-filled request
+ */
+export function sendEmailRequest(sessionId: string, recipientEmail: string, senderName: string, documentName?: string): void {
+    const url = getSigningUrl(sessionId);
+    const subject = encodeURIComponent(`Signature Request: ${documentName || 'Document'}`);
+    const body = encodeURIComponent(
+        `Hi,\n\n${senderName} has requested your signature on "${documentName || 'a document'}".\n\n` +
+        `You can sign it securely from your mobile device or computer using the link below:\n\n${url}\n\n` +
+        `Thank you!`
+    );
+    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
+}
+
+/**
+ * Gets a signature session by ID
  */
 export function getSignatureSession(sessionId: string): SignatureSession | null {
-    // Check memory first
     let session = sessions.get(sessionId);
 
-    // Check localStorage if not in memory
     if (!session) {
         try {
             const storedSessions = JSON.parse(localStorage.getItem('pdf_signature_sessions') || '[]');
@@ -78,20 +250,15 @@ export function getSignatureSession(sessionId: string): SignatureSession | null 
                 sessions.set(sessionId, session);
             }
         } catch (e) {
-            console.warn('Could not retrieve signature session:', e);
+            console.warn('Could not read signature sessions:', e);
         }
-    }
-
-    // Check if expired
-    if (session && new Date(session.expiresAt) < new Date()) {
-        session.status = 'expired';
     }
 
     return session || null;
 }
 
 /**
- * Complete a signature session with the signature data
+ * Completes a signature session
  */
 export function completeSignatureSession(
     sessionId: string,
@@ -100,8 +267,17 @@ export function completeSignatureSession(
 ): boolean {
     const session = getSignatureSession(sessionId);
 
-    if (!session || session.status !== 'pending') {
-        return false;
+    if (!session) {
+        // Even if we don't have the session object, we can still broadcast the completion
+        // if we have the ID, though it's better to have the object.
+        const channel = initSignatureChannel();
+        channel.postMessage({
+            type: 'signature_completed',
+            sessionId,
+            signatureDataUrl,
+            signerName
+        });
+        return true;
     }
 
     session.status = 'signed';
@@ -122,141 +298,20 @@ export function completeSignatureSession(
         console.warn('Could not update signature session:', e);
     }
 
-    // Broadcast the completion to other tabs/windows
-    if (broadcastChannel) {
-        broadcastChannel.postMessage({
-            type: 'signature_completed',
-            sessionId,
-            signatureDataUrl,
-            signerName
-        });
-    }
+    // Notify via BroadcastChannel for same-device listeners
+    const channel = initSignatureChannel();
+    channel.postMessage({
+        type: 'signature_completed',
+        sessionId,
+        signatureDataUrl,
+        signerName
+    });
 
     return true;
 }
 
 /**
- * Generate signing URL for a session
- */
-export function getSigningUrl(sessionId: string): string {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/sign/${sessionId}`;
-}
-
-/**
- * Generate QR code for signing
- */
-export async function generateSigningQRCode(sessionId: string): Promise<string> {
-    const url = getSigningUrl(sessionId);
-
-    try {
-        const qrDataUrl = await QRCode.toDataURL(url, {
-            width: 256,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#ffffff'
-            },
-            errorCorrectionLevel: 'H'
-        });
-        return qrDataUrl;
-    } catch (err) {
-        console.error('Failed to generate QR code:', err);
-        throw err;
-    }
-}
-
-/**
- * Copy signing link to clipboard
- */
-export async function copySigningLink(sessionId: string): Promise<boolean> {
-    const url = getSigningUrl(sessionId);
-
-    try {
-        await navigator.clipboard.writeText(url);
-        return true;
-    } catch (err) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = url;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        const success = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        return success;
-    }
-}
-
-/**
- * Share signing link via Web Share API (mobile)
- */
-export async function shareSigningLink(sessionId: string, documentName?: string): Promise<boolean> {
-    const url = getSigningUrl(sessionId);
-
-    if (navigator.share) {
-        try {
-            await navigator.share({
-                title: 'Sign Document',
-                text: documentName
-                    ? `Please sign the document: ${documentName}`
-                    : 'Please sign this document',
-                url: url
-            });
-            return true;
-        } catch (err) {
-            if ((err as Error).name !== 'AbortError') {
-                console.error('Share failed:', err);
-            }
-            return false;
-        }
-    }
-
-    // Fallback to clipboard
-    return copySigningLink(sessionId);
-}
-
-/**
- * Generate mailto link for email signature request
- */
-export function generateEmailRequest(
-    sessionId: string,
-    recipientEmail: string,
-    senderName: string,
-    documentName?: string
-): string {
-    const url = getSigningUrl(sessionId);
-    const subject = encodeURIComponent(
-        documentName
-            ? `Signature Request: ${documentName}`
-            : 'Document Signature Request'
-    );
-    const body = encodeURIComponent(
-        `Hello,\n\n${senderName} has requested your signature on a document.\n\n` +
-        `Please click the link below to sign:\n${url}\n\n` +
-        `This link will expire in 24 hours.\n\n` +
-        `Thank you!`
-    );
-
-    return `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
-}
-
-/**
- * Open email client with signature request
- */
-export function sendEmailRequest(
-    sessionId: string,
-    recipientEmail: string,
-    senderName: string = 'Someone',
-    documentName?: string
-): void {
-    const mailtoUrl = generateEmailRequest(sessionId, recipientEmail, senderName, documentName);
-    window.location.href = mailtoUrl;
-}
-
-/**
- * Listen for signature completion from other tabs/devices
+ * Listens for signature completion via BroadcastChannel
  */
 export function onSignatureComplete(
     sessionId: string,
@@ -264,89 +319,34 @@ export function onSignatureComplete(
 ): () => void {
     const channel = initSignatureChannel();
 
-    const handler = (event: MessageEvent) => {
+    const handleMessage = (event: MessageEvent) => {
         if (event.data.type === 'signature_completed' && event.data.sessionId === sessionId) {
             callback(event.data.signatureDataUrl, event.data.signerName);
         }
     };
 
-    channel.addEventListener('message', handler);
+    channel.addEventListener('message', handleMessage);
 
-    // Return cleanup function
     return () => {
-        channel.removeEventListener('message', handler);
+        channel.removeEventListener('message', handleMessage);
     };
 }
 
 /**
- * Poll for signature completion (fallback for when broadcast channel is not available)
+ * Polls for signature completion via localStorage (fallback)
  */
 export function pollForSignatureCompletion(
     sessionId: string,
     callback: (signatureDataUrl: string, signerName?: string) => void,
     intervalMs: number = 2000
 ): () => void {
-    let isPolling = true;
-
-    const poll = async () => {
-        while (isPolling) {
-            const session = getSignatureSession(sessionId);
-            if (session?.status === 'signed' && session.signatureDataUrl) {
-                callback(session.signatureDataUrl, session.signerName);
-                break;
-            }
-            await new Promise(resolve => setTimeout(resolve, intervalMs));
+    const interval = setInterval(() => {
+        const session = getSignatureSession(sessionId);
+        if (session?.status === 'signed' && session.signatureDataUrl) {
+            callback(session.signatureDataUrl, session.signerName);
+            clearInterval(interval);
         }
-    };
+    }, intervalMs);
 
-    poll();
-
-    // Return cleanup function
-    return () => {
-        isPolling = false;
-    };
-}
-
-/**
- * Notarization request (placeholder for future integration)
- */
-export interface NotarizationRequest {
-    documentName: string;
-    signerName: string;
-    signerEmail: string;
-    notaryType: 'online' | 'in-person';
-}
-
-export function requestNotarization(_request: NotarizationRequest): Promise<{ success: boolean; message: string }> {
-    // This would integrate with a notarization service like Notarize.com, DocVerify, etc.
-    // For now, show a message about the feature
-    return Promise.resolve({
-        success: false,
-        message: 'Online notarization requires integration with a certified notary service. This feature will be available soon.'
-    });
-}
-
-/**
- * Clean up expired sessions
- */
-export function cleanupExpiredSessions(): void {
-    const now = new Date();
-
-    // Clean memory
-    for (const [id, session] of sessions.entries()) {
-        if (new Date(session.expiresAt) < now) {
-            sessions.delete(id);
-        }
-    }
-
-    // Clean localStorage
-    try {
-        const storedSessions = JSON.parse(localStorage.getItem('pdf_signature_sessions') || '[]');
-        const validSessions = storedSessions.filter(
-            (s: SignatureSession) => new Date(s.expiresAt) >= now
-        );
-        localStorage.setItem('pdf_signature_sessions', JSON.stringify(validSessions));
-    } catch (e) {
-        console.warn('Could not cleanup expired sessions:', e);
-    }
+    return () => clearInterval(interval);
 }

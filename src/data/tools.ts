@@ -126,14 +126,62 @@ export const tools: Tool[] = [
         id: 'merge', slug: 'merge', name: 'Merge PDF Files', shortName: 'Merge',
         category: 'organize', icon: Merge, bgGradient: 'from-blue-500 to-blue-600',
         description: 'Combine multiple PDF files into one document',
-        keywords: ['merge pdf', 'combine pdf', 'join pdf files', 'pdf merger'],
+        metaDescription: 'Merge PDF files online for free. Combine multiple PDFs into one document quickly and securely. No signup required, 100% local processing.',
+        longDescription: `PDF PhD's Merge tool lets you combine multiple PDF files into a single document in seconds. Whether you're compiling reports, joining contracts, or organizing scanned documents, our free online PDF merger handles it all with ease.
+
+Unlike other online tools that upload your files to remote servers, PDF PhD processes everything locally in your browser. Your confidential documents never leave your device, ensuring complete privacy and security for sensitive business files, legal documents, and personal records.
+
+Our advanced merging technology preserves all formatting, bookmarks, hyperlinks, and interactive elements from your original PDFs. You can also reorder pages visually before merging, giving you complete control over the final document structure.
+
+Perfect for professionals who need to combine quarterly reports, students merging research papers and citations, legal teams assembling case files, or anyone who wants to reduce document clutter by consolidating multiple PDFs into one organized file.`,
+        keywords: ['merge pdf', 'combine pdf', 'join pdf files', 'pdf merger', 'combine pdf online free', 'merge pdf files free', 'pdf combiner'],
+        howItWorks: [
+            { step: 1, title: 'Upload Files', description: 'Drag and drop multiple PDF files into the merge tool, or click to browse your device.' },
+            { step: 2, title: 'Arrange Order', description: 'Reorder your PDFs by dragging them into your preferred sequence. Preview pages before merging.' },
+            { step: 3, title: 'Download Result', description: 'Click merge and instantly download your combined PDF. All processing happens locally - nothing is uploaded.' }
+        ],
+        useCases: [
+            { title: 'Business Reports', description: 'Combine monthly reports, financial statements, and presentations into comprehensive quarterly packages.' },
+            { title: 'Legal Documents', description: 'Merge contracts, exhibits, and supporting documents into complete case files.' },
+            { title: 'Academic Papers', description: 'Join research papers, citations, and appendices into unified thesis documents.' }
+        ],
+        faq: [
+            { question: 'Is merging PDFs free?', answer: 'Yes, PDF PhD offers unlimited free PDF merging with no file size limits or watermarks.' },
+            { question: 'Can I merge password-protected PDFs?', answer: 'Yes, you can merge encrypted PDFs after entering the password. The merged file will not retain password protection unless you add it.' },
+            { question: 'Are my files uploaded to a server?', answer: 'No! PDF PhD processes everything locally in your browser. Your files never leave your device, ensuring complete privacy.' },
+            { question: 'How many PDFs can I merge at once?', answer: 'You can merge as many PDFs as your browser can handle - typically hundreds of files without issues.' }
+        ],
         featured: true, relatedTools: ['split', 'reorder', 'compress']
     }),
     createTool({
         id: 'split', slug: 'split', name: 'Split PDF', shortName: 'Split',
         category: 'organize', icon: Scissors, bgGradient: 'from-red-500 to-red-600',
         description: 'Extract pages or split PDF into multiple documents',
-        keywords: ['split pdf', 'extract pdf pages', 'separate pdf'],
+        metaDescription: 'Split PDF files online for free. Extract specific pages, separate large documents, or divide PDFs by page ranges. Fast, secure, and no upload required.',
+        longDescription: `PDF PhD's Split tool makes it easy to break large PDF documents into smaller, manageable files. Whether you need to extract a single page, separate chapters, or divide a document into equal parts, our free online PDF splitter handles it all instantly.
+
+Our intelligent splitting options give you complete control: extract specific page ranges, split by bookmarks, divide into single-page files, or create custom splits based on your needs. The visual interface lets you preview pages before splitting, ensuring you get exactly what you need.
+
+All processing happens locally in your browser - your files are never uploaded to external servers. This means faster processing times and complete privacy for confidential documents like contracts, financial statements, and legal briefs.
+
+Whether you're a business professional separating invoice pages, a student extracting relevant chapters, or a team member distributing document sections, PDF PhD's split tool delivers professional results without the professional price tag.`,
+        keywords: ['split pdf', 'extract pdf pages', 'separate pdf', 'divide pdf', 'pdf splitter', 'split pdf online free', 'extract pages from pdf'],
+        howItWorks: [
+            { step: 1, title: 'Upload Your PDF', description: 'Select or drag your PDF file into the splitter. Large files work perfectly.' },
+            { step: 2, title: 'Choose Split Method', description: 'Select pages visually, enter page ranges, or choose automatic splitting options.' },
+            { step: 3, title: 'Download Splits', description: 'Get your separated PDF files instantly. Each split downloads as its own file.' }
+        ],
+        useCases: [
+            { title: 'Extract Chapters', description: 'Pull specific chapters or sections from ebooks, manuals, or reports.' },
+            { title: 'Separate Invoices', description: 'Split multi-page invoice documents into individual customer invoices.' },
+            { title: 'Share Specific Pages', description: 'Extract only the pages you need to share without sending the entire document.' }
+        ],
+        faq: [
+            { question: 'How do I split a PDF by page range?', answer: 'Enter your desired page ranges (like 1-5, 8, 12-15) in the split tool to extract those specific pages into a new PDF.' },
+            { question: 'Can I split a PDF into single pages?', answer: 'Yes! Choose the "Split All" option to create separate PDF files for each page of your document.' },
+            { question: 'Will splitting reduce quality?', answer: 'No. PDF splitting is lossless - each extracted page maintains the exact same quality as the original.' },
+            { question: 'Can I split password-protected PDFs?', answer: 'Yes, enter the password first and then split the PDF freely.' }
+        ],
         featured: true, relatedTools: ['merge', 'extract-pages', 'delete-pages']
     }),
     createTool({
@@ -366,7 +414,31 @@ export const tools: Tool[] = [
         id: 'sign', slug: 'sign', name: 'Sign PDF', shortName: 'Sign',
         category: 'security', type: 'visual', icon: PenTool, bgGradient: 'from-purple-500 to-violet-600',
         description: 'Add electronic signatures to PDF documents',
-        keywords: ['sign pdf', 'electronic signature', 'e-sign pdf'],
+        metaDescription: 'Sign PDF documents online for free. Add your electronic signature to contracts, agreements, and forms instantly. Legally binding, secure, no signup required.',
+        longDescription: `PDF PhD's Sign tool lets you add professional electronic signatures to any PDF document in seconds. Whether you're signing contracts, forms, agreements, or legal documents, our free e-signature tool makes the process fast, secure, and legally binding.
+
+Create your signature by drawing with your mouse or finger, typing your name in a signature font, or uploading an image of your existing signature. Place and resize it anywhere on the document with our intuitive visual editor, then download your signed PDF immediately.
+
+Electronic signatures are legally recognized in most countries worldwide, including the US (ESIGN Act), EU (eIDAS), UK, Canada, and Australia. Your signed documents carry the same legal weight as traditional ink signatures for most business and personal purposes.
+
+Since all processing happens locally in your browser, your documents never leave your device. This makes PDF PhD perfect for signing confidential contracts, employment agreements, medical forms, and financial documents without privacy concerns.`,
+        keywords: ['sign pdf', 'electronic signature', 'e-sign pdf', 'digital signature', 'sign pdf online free', 'pdf signature', 'esign document'],
+        howItWorks: [
+            { step: 1, title: 'Upload Document', description: 'Select the PDF document you need to sign. Works with contracts, forms, and any PDF.' },
+            { step: 2, title: 'Create Signature', description: 'Draw your signature, type your name, or upload an image. Style it how you want.' },
+            { step: 3, title: 'Place & Download', description: 'Position your signature on the document and download your signed PDF instantly.' }
+        ],
+        useCases: [
+            { title: 'Contracts & Agreements', description: 'Sign employment contracts, rental agreements, and business deals remotely.' },
+            { title: 'Legal Documents', description: 'Add signatures to affidavits, power of attorney, and other legal paperwork.' },
+            { title: 'Forms & Applications', description: 'Complete application forms, consent forms, and official paperwork digitally.' }
+        ],
+        faq: [
+            { question: 'Are electronic signatures legally valid?', answer: 'Yes! E-signatures are legally binding in most countries under laws like ESIGN Act (US), eIDAS (EU), and similar legislation worldwide.' },
+            { question: 'Can I add multiple signatures?', answer: 'Yes, add as many signatures, initials, or dates as needed on any pages of your document.' },
+            { question: 'Is my signature saved?', answer: 'Your signature is saved locally in your browser for convenience. Nothing is uploaded to our servers.' },
+            { question: 'Can I request signatures from others?', answer: 'Yes, use our Request Signature feature to send documents for others to sign remotely.' }
+        ],
         featured: true, relatedTools: ['protect', 'redact']
     }),
     createTool({
@@ -403,7 +475,31 @@ export const tools: Tool[] = [
         id: 'compress', slug: 'compress', name: 'Compress PDF', shortName: 'Compress',
         category: 'optimize', icon: Minimize2, bgGradient: 'from-teal-500 to-teal-600',
         description: 'Reduce PDF file size while maintaining quality',
-        keywords: ['compress pdf', 'reduce pdf size', 'pdf compressor'],
+        metaDescription: 'Compress PDF files online for free. Reduce PDF size by up to 90% without losing quality. Perfect for email attachments and web uploads. Fast & secure.',
+        longDescription: `PDF PhD's Compress tool dramatically reduces your PDF file size while preserving visual quality. Whether you're trying to email a large document, upload files to limited storage, or optimize for web viewing, our intelligent compression finds the perfect balance between size and quality.
+
+Our compression engine analyzes your PDF content and applies smart optimization: downsampling high-resolution images, removing redundant data, optimizing fonts, and streamlining the document structure. You can choose between different compression levels depending on whether you prioritize quality or file size.
+
+Unlike other compressors that require uploading to external servers, PDF PhD processes everything in your browser. Large PDFs compress in seconds without any data leaving your device - perfect for confidential business documents, medical records, or financial statements.
+
+Most users see 50-80% file size reduction while maintaining document readability. This means your 10MB PDF could become 2MB or less, making it easy to share via email, upload to web portals, or store efficiently.`,
+        keywords: ['compress pdf', 'reduce pdf size', 'pdf compressor', 'shrink pdf', 'make pdf smaller', 'compress pdf online free', 'reduce pdf file size'],
+        howItWorks: [
+            { step: 1, title: 'Upload PDF', description: 'Select your PDF file. Even very large files process quickly in your browser.' },
+            { step: 2, title: 'Choose Quality', description: 'Select compression level: Low (highest quality), Medium (balanced), or High (smallest size).' },
+            { step: 3, title: 'Download Compressed', description: 'Get your smaller PDF instantly. See the exact file size reduction achieved.' }
+        ],
+        useCases: [
+            { title: 'Email Attachments', description: 'Reduce file size to meet email attachment limits (usually 25MB or less).' },
+            { title: 'Web Upload', description: 'Compress PDFs for website uploads, form submissions, or cloud storage limits.' },
+            { title: 'Storage Optimization', description: 'Shrink PDF archives to save disk space while keeping documents accessible.' }
+        ],
+        faq: [
+            { question: 'How much can PDF size be reduced?', answer: 'Most PDFs compress by 50-80%. Image-heavy documents see the most reduction, while text-only PDFs have less room for compression.' },
+            { question: 'Will compression reduce quality?', answer: 'Our "Low" compression setting maintains near-original quality. Higher settings trade some quality for smaller files - perfect for screen viewing.' },
+            { question: 'Can I compress password-protected PDFs?', answer: 'Yes, enter the password first, then compress. You can re-apply protection after compression.' },
+            { question: 'Is there a file size limit?', answer: 'Since processing happens in your browser, limits depend on your device memory. Most computers handle 100MB+ files easily.' }
+        ],
         featured: true, relatedTools: ['merge', 'split']
     }),
     createTool({

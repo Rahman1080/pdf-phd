@@ -66,6 +66,7 @@ import { SignatureModal } from './SignatureModal';
 import { ImageUploadModal } from './ImageUploadModal';
 import { StampSelectorModal } from './StampSelectorModal';
 import { ShapeSelectorModal } from './ShapeSelectorModal';
+import { generateId } from '../../utils/helpers';
 import { DirectTextEditor } from '../index';
 import { OCRProcessor } from '../OCRProcessor';
 import { LinkModal, QRCodeModal, BatesModal, PageNumbersModal, HeaderFooterModal, BulkRedactModal } from './VisualEditorModals';
@@ -418,8 +419,18 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
             let currentFileIndex = files.length;
 
             for (const file of newFiles) {
+                if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                    console.warn('[loadPdfs] Skipping non-PDF file:', file.name);
+                    continue;
+                }
+
                 const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                // CRITICAL FIX: Convert ArrayBuffer to Uint8Array for PDF.js compatibility
+                const pdf = await pdfjsLib.getDocument({
+                    data: new Uint8Array(arrayBuffer),
+                    // Use a legacy-friendly approach for password-protected files
+                    stopAtErrors: false
+                }).promise;
                 const pageCount = pdf.numPages;
 
                 for (let i = 1; i <= pageCount; i++) {
@@ -433,7 +444,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                     await page.render({ canvasContext: context!, viewport } as any).promise;
 
                     allLoadedPages.push({
-                        id: crypto.randomUUID(),
+                        id: generateId(),
                         fileIndex: currentFileIndex,
                         originalIndex: i - 1,
                         thumbnail: canvas.toDataURL('image/webp', 0.8),
@@ -454,8 +465,8 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                 setActivePageId(allLoadedPages[0].id);
             }
         } catch (err: any) {
-            console.error(err);
-            setError('Failed to load PDF. It might be corrupt or encrypted.');
+            console.error('[VisualToolInterface] PDF Load Error:', err);
+            setError(`Failed to load PDF: ${err.message || 'It might be corrupt or encrypted.'}`);
             setStatus('error');
         }
     };
@@ -481,7 +492,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
             const selected = prev.filter(p => p.selected);
             selected.forEach(p => {
                 const idx = next.findIndex(item => item.id === p.id);
-                const newPage = { ...p, id: crypto.randomUUID(), selected: false };
+                const newPage = { ...p, id: generateId(), selected: false };
                 next.splice(idx + 1, 0, newPage);
             });
             return next;
@@ -1090,18 +1101,23 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
     // ====== MODAL SAVE HANDLERS ======
 
     const handleSignatureSave = (signatureDataUrl: string) => {
-        if (!pendingElementPosition || !activePage) return;
+        if (!pendingElementPosition || !activePage) {
+            console.warn('[handleSignatureSave] Missing position or active page', { pos: !!pendingElementPosition, page: !!activePage });
+            return;
+        }
+
+        console.log('[handleSignatureSave] Received signature data length:', signatureDataUrl.length);
 
         const newElement = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: 'signature',
             content: signatureDataUrl,
             x: Math.max(0, Math.min(pendingElementPosition.x, 95)),
             y: Math.max(0, Math.min(pendingElementPosition.y, 95)),
-            width: 25, // 25% of page width
-            height: 10, // 10% of page height
+            width: 30, // Increased from 25
+            height: 12, // Increased from 10
             color: '#000000',
-            isPercentage: true // Flag for export to handle correctly
+            isPercentage: true
         };
 
         setPages(pages.map(p => p.id === activePage.id ? {
@@ -1117,7 +1133,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
         if (!pendingElementPosition || !activePage) return;
 
         const newElement = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: 'image',
             content: imageDataUrl,
             x: Math.max(0, Math.min(pendingElementPosition.x, 95)),
@@ -1141,7 +1157,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
         if (!pendingElementPosition || !activePage) return;
 
         const newElement = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: 'stamp',
             content: stampText,
             x: Math.max(0, Math.min(pendingElementPosition.x, 95)),
@@ -1177,7 +1193,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
         }
 
         const newElement = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: 'shape',
             shapeType: shapeType, // rectangle, circle, triangle, arrow, line
             content: '',
@@ -1204,7 +1220,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
         const pos = pendingElementPosition || { x: 30, y: 40 };
 
         const newElementBase = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: 'watermark',
             content: 'WATERMARK',
             x: Math.max(0, Math.min(pos.x, 95)),
@@ -1220,7 +1236,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
         // Apply to ALL pages for watermark
         setPages(pages.map(p => ({
             ...p,
-            elements: [...(p.elements || []), { ...newElementBase, id: crypto.randomUUID() }]
+            elements: [...(p.elements || []), { ...newElementBase, id: generateId() }]
         })));
 
         setSelectedElementIndex((activePage.elements?.length || 0));
@@ -1248,7 +1264,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
             const pos = pendingElementPosition || { x: 35, y: defaultY };
 
             const newElementBase = {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 x: Math.max(0, Math.min(pos.x, 95)),
                 y: Math.max(0, Math.min(pos.y, 95)),
                 isPercentage: true,
@@ -1259,7 +1275,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                 // Apply to all pages
                 setPages(pages.map(p => ({
                     ...p,
-                    elements: [...(p.elements || []), { ...newElementBase, id: crypto.randomUUID() }]
+                    elements: [...(p.elements || []), { ...newElementBase, id: generateId() }]
                 })));
             } else if (activePage) {
                 setPages(pages.map(p => p.id === activePage.id ? {
@@ -1311,7 +1327,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
             const res = results.find(r => r.pageIndex === p.originalIndex);
             if (res) {
                 const newElement = {
-                    id: crypto.randomUUID(),
+                    id: generateId(),
                     type: 'text',
                     content: res.text,
                     x: 5,
@@ -1397,7 +1413,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                                 const pctH = (fontHeight / pageHeight) * 100;
 
                                 addedElements.push({
-                                    id: crypto.randomUUID(),
+                                    id: generateId(),
                                     type: 'redact',
                                     x: Math.max(0, pctX - 0.2), // Slight overlap for safety
                                     y: Math.max(0, pctY - 0.2),
@@ -1893,7 +1909,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                                                                         }
 
                                                                         const newElement = {
-                                                                            id: crypto.randomUUID(),
+                                                                            id: generateId(),
                                                                             type,
                                                                             content,
                                                                             x: Math.max(0, Math.min(x, 95)),
@@ -2099,7 +2115,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                                                                                                     e.stopPropagation();
                                                                                                     setPages(pages.map(p => p.id === activePage.id ? {
                                                                                                         ...p,
-                                                                                                        elements: [...(p.elements || []), { ...el, id: crypto.randomUUID(), x: el.x + 2, y: el.y + 2 }]
+                                                                                                        elements: [...(p.elements || []), { ...el, id: generateId(), x: el.x + 2, y: el.y + 2 }]
                                                                                                     } : p));
                                                                                                 }}
                                                                                                 onMouseDown={(e) => e.stopPropagation()}
@@ -2121,7 +2137,7 @@ export function VisualToolInterface({ tool }: VisualToolInterfaceProps) {
                                                                                                         // Create a copy of the element with a new ID
                                                                                                         const newElement = {
                                                                                                             ...el,
-                                                                                                            id: crypto.randomUUID()
+                                                                                                            id: generateId()
                                                                                                         };
 
                                                                                                         return {

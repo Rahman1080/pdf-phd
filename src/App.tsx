@@ -51,6 +51,7 @@ import type { FormField } from './components/AddFieldsPanel';
 import type { TableData } from './components/TableCreator';
 import { CONVERT_TO_PDF } from './config/api';
 import { handleVisualHTMLExport } from './utils/visualHtmlHandler';
+import { generateId } from './utils/helpers';
 
 // New Feature Components (17 Missing Features Implementation)
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
@@ -385,8 +386,8 @@ export interface PDFTab {
   pdf: LoadedPDF | null;
 }
 
-const genId = () => crypto.randomUUID();
-const genTabId = () => 'tab-' + crypto.randomUUID();
+const genId = () => generateId();
+const genTabId = () => 'tab-' + generateId();
 
 // Helper to parse color and alpha
 const parseColor = (color: string) => {
@@ -2295,7 +2296,7 @@ function PDFEditor({
         setSelected(null);
         break;
       case 'duplicate':
-        const dup = { ...selected, id: crypto.randomUUID(), x: selected.x + 20, y: selected.y + 20 };
+        const dup = { ...selected, id: generateId(), x: selected.x + 20, y: selected.y + 20 };
         setElements(prev => ({ ...prev, [page]: [...(prev[page] || []), dup] }));
         break;
       case 'bring-front':
@@ -2874,7 +2875,7 @@ function PDFEditor({
         const p = externalDoc.getPage(idx);
         const { width, height } = p.getSize();
         return {
-          id: crypto.randomUUID(),
+          id: generateId(),
           width,
           height,
           rotation: p.getRotation().angle,
@@ -3026,7 +3027,7 @@ function PDFEditor({
       // Update pages metadata (fix duplicate key issue)
       const newPageMeta: PDFPageData = {
         ...pages[num - 1],
-        id: crypto.randomUUID(),
+        id: generateId(),
         pageNumber: num + 1
       };
       const nextPages = [...pages];
@@ -3213,7 +3214,7 @@ function PDFEditor({
 
       // Update Pages State
       const newPageMeta: PDFPageData = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         width: width * 1.5,
         height: height * 1.5,
         pageNumber: shiftFrom,
@@ -3791,7 +3792,7 @@ function PDFEditor({
   const addWatermark = (text: string, opacity: number, type: 'text' | 'image' = 'text', src?: string) => {
     pushHistory();
     const newEls = { ...elements };
-    const groupId = `sync_${crypto.randomUUID()}`;
+    const groupId = `sync_${generateId()}`;
 
     for (let i = 1; i <= pages.length; i++) {
       const pw = pages[i - 1].width * 1.5;
@@ -3838,7 +3839,7 @@ function PDFEditor({
     // Ensure selected has a grouping ID
     let groupId = selected.syncGroupId;
     if (!groupId) {
-      groupId = `sync_${crypto.randomUUID()}`;
+      groupId = `sync_${generateId()}`;
       // Update selected PDFElement on current page
       const currentEls = [...(elements[page] || [])];
       const idx = currentEls.findIndex(e => e.id === selected.id);
@@ -4451,7 +4452,7 @@ function PDFEditor({
       </svg>`;
     const src = 'data:image/svg+xml;base64,' + btoa(svg);
     const newEl: ImageEl = {
-      id: crypto.randomUUID(), type: 'image', x: currentPageWidth / 2 - 100, y: currentPageHeight / 2 - 40, width: 200, height: 80,
+      id: generateId(), type: 'image', x: currentPageWidth / 2 - 100, y: currentPageHeight / 2 - 40, width: 200, height: 80,
       opacity: 1, rotation: 0, visible: true, locked: false, zIndex: elements[page]?.length || 0, src
     };
     addElement(newEl);
@@ -4464,7 +4465,7 @@ function PDFEditor({
     const finalSvg = svgString.includes('xmlns') ? svgString : svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
     const src = 'data:image/svg+xml;base64,' + btoa(finalSvg);
     const newEl: ImageEl = {
-      id: crypto.randomUUID(), type: 'image', x: currentPageWidth / 2 - 50, y: currentPageHeight / 2 - 50, width: 100, height: 100,
+      id: generateId(), type: 'image', x: currentPageWidth / 2 - 50, y: currentPageHeight / 2 - 50, width: 100, height: 100,
       opacity: 1, rotation: 0, visible: true, locked: false, zIndex: elements[page]?.length || 0, src
     };
     addElement(newEl);
@@ -4519,7 +4520,7 @@ function PDFEditor({
         const currentPageWidth = pages[page - 1].width * 1.5;
         const currentPageHeight = pages[page - 1].height * 1.5;
         addElement({
-          id: crypto.randomUUID(), type: 'image', x: currentPageWidth / 2 - 75, y: currentPageHeight / 2 - 75, width: 150, height: 150,
+          id: generateId(), type: 'image', x: currentPageWidth / 2 - 75, y: currentPageHeight / 2 - 75, width: 150, height: 150,
           opacity: 1, rotation: 0, visible: true, locked: false, zIndex: elements[page]?.length || 0, src: base64
         });
       };
@@ -4536,7 +4537,7 @@ function PDFEditor({
     const currentPageWidth = pages[page - 1].width * 1.5;
     const currentPageHeight = pages[page - 1].height * 1.5;
     addElement({
-      id: crypto.randomUUID(),
+      id: generateId(),
       type: 'hyperlink',
       x: currentPageWidth / 2 - 100,
       y: currentPageHeight / 2 - 15,
@@ -8939,7 +8940,7 @@ function PDFEditor({
             if (asset.type === 'stamp' || asset.type === 'text') {
               // Create a proper TextEl that matches the interface
               newEl = {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 type: 'text' as const,
                 x: centerX,
                 y: centerY,
@@ -8961,7 +8962,7 @@ function PDFEditor({
             } else if (asset.type === 'image' && asset.content) {
               // For image assets, add as image PDFElement
               newEl = {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 type: 'image' as const,
                 x: centerX,
                 y: centerY,
@@ -9310,7 +9311,7 @@ export default function App() {
                 for (let i = 1; i <= loadedPdf.pageCount; i++) {
                   const p = await loadedPdf.pdfDoc.getPage(i);
                   const { width, height } = p.getViewport({ scale: 1 });
-                  pages.push({ id: crypto.randomUUID(), pageNumber: i, width, height, rotation: 0 });
+                  pages.push({ id: generateId(), pageNumber: i, width, height, rotation: 0 });
                 }
                 loadedPdf.pages = pages;
               }
@@ -9565,7 +9566,7 @@ export default function App() {
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const pg = await pdfDoc.getPage(i);
         const vp = pg.getViewport({ scale: 1 });
-        newPages.push({ id: crypto.randomUUID(), pageNumber: i, width: vp.width, height: vp.height, rotation: vp.rotation || 0 });
+        newPages.push({ id: generateId(), pageNumber: i, width: vp.width, height: vp.height, rotation: vp.rotation || 0 });
       }
 
       const loadedPdf: LoadedPDF = {

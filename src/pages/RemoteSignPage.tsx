@@ -1,12 +1,12 @@
 // Remote Signature Page - Allows signing from any device via QR/Link
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Check, PenLine, Trash2, CheckCircle, XCircle, Loader2, Upload, Camera } from 'lucide-react';
+import { Check, PenLine, Trash2, CheckCircle, XCircle, Loader2, Upload, Camera, Smartphone, Globe } from 'lucide-react';
 import * as SignatureService from '../services/signatureService';
 
 type SignMode = 'draw' | 'type' | 'upload' | 'camera';
 
-export function RemoteSignPage() {
+export default function RemoteSignPage() {
     const { sessionId } = useParams<{ sessionId: string }>();
     const navigate = useNavigate();
 
@@ -32,6 +32,10 @@ export function RemoteSignPage() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isCameraActive, setIsCameraActive] = useState(false);
 
+    // Peer connection state
+    const [remoteSigner, setRemoteSigner] = useState<{ sendSignature: (data: string, name?: string) => void, disconnect: () => void } | null>(null);
+    const [isPeerConnected, setIsPeerConnected] = useState(false);
+
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
     const signatureFonts = [
@@ -41,28 +45,43 @@ export function RemoteSignPage() {
         { name: 'Great Vibes', style: 'font-signature4' },
     ];
 
-    // Load session
+    // Load session and connect to Peer
     useEffect(() => {
         if (sessionId) {
             const loadedSession = SignatureService.getSignatureSession(sessionId);
 
             if (!loadedSession) {
-                setStatus('error');
-                return;
+                // If not in local storage (different device), we still try to connect to the peer
+                setStatus('ready');
+            } else {
+                if (loadedSession.status === 'expired' || new Date(loadedSession.expiresAt) < new Date()) {
+                    setStatus('expired');
+                    return;
+                }
+
+                if (loadedSession.status === 'signed') {
+                    setStatus('success');
+                    return;
+                }
+
+                setSession(loadedSession);
+                setStatus('ready');
             }
 
-            if (loadedSession.status === 'expired' || new Date(loadedSession.expiresAt) < new Date()) {
-                setStatus('expired');
-                return;
+            // Connect to host device via PeerJS
+            console.log('[RemoteSign] Attempting to connect to host via PeerJS...');
+            const signer = SignatureService.connectAsSigner(sessionId, () => {
+                setIsPeerConnected(true);
+                console.log('[RemoteSign] ✅ Successfully connected to host device via PeerJS');
+            });
+
+            if (signer) {
+                setRemoteSigner(signer);
             }
 
-            if (loadedSession.status === 'signed') {
-                setStatus('success');
-                return;
-            }
-
-            setSession(loadedSession);
-            setStatus('ready');
+            return () => {
+                if (signer) signer.disconnect();
+            };
         }
     }, [sessionId]);
 
@@ -99,21 +118,24 @@ export function RemoteSignPage() {
         ctx.lineWidth = isMobile ? 4 : 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        setHasSignature(false);
     }, [canvasSize, signMode, isMobile]);
 
-    // Drawing handlers
     const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
+
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvasSize.width / rect.width;
-        const scaleY = canvasSize.height / rect.height;
+        const scaleX = canvas.width / (rect.width * window.devicePixelRatio);
+        const scaleY = canvas.height / (rect.height * window.devicePixelRatio);
+
         if ('touches' in e) {
             return {
                 x: (e.touches[0].clientX - rect.left) * scaleX,
                 y: (e.touches[0].clientY - rect.top) * scaleY
             };
         }
+
         return {
             x: (e.clientX - rect.left) * scaleX,
             y: (e.clientY - rect.top) * scaleY
@@ -122,8 +144,12 @@ export function RemoteSignPage() {
 
     const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         e.preventDefault();
-        const ctx = canvasRef.current?.getContext('2d');
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
         const { x, y } = getCoordinates(e);
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -134,402 +160,406 @@ export function RemoteSignPage() {
     const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         if (!isDrawing) return;
         e.preventDefault();
-        const ctx = canvasRef.current?.getContext('2d');
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
         const { x, y } = getCoordinates(e);
         ctx.lineTo(x, y);
         ctx.stroke();
     };
 
-    const stopDrawing = () => setIsDrawing(false);
+    const stopDrawing = () => {
+        setIsDrawing(false);
+    };
 
     const clearCanvas = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        const dpr = window.devicePixelRatio || 1;
-        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         setHasSignature(false);
     };
 
-    // Generate typed signature
+    // Type mode font cycle
+    const cycleFont = () => {
+        setSelectedFont((prev) => (prev + 1) % signatureFonts.length);
+    };
+
     const generateTypedSignature = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = 500;
+        canvas.width = 600;
         canvas.height = 150;
         const ctx = canvas.getContext('2d');
         if (!ctx) return '';
-        ctx.clearRect(0, 0, 500, 150);
-        ctx.fillStyle = '#000000';
-        ctx.font = `48px "${signatureFonts[selectedFont].name}", cursive`;
+
+        ctx.clearRect(0, 0, 600, 150);
+        ctx.fillStyle = '#000';
+        ctx.font = `64px "${signatureFonts[selectedFont].name}", cursive`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(typedName || 'Your Signature', 250, 75);
+        ctx.fillText(typedName || signerName, canvas.width / 2, canvas.height / 2);
+
         return canvas.toDataURL('image/png');
     };
 
-    // File upload
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => setUploadedImage(event.target?.result as string);
+            reader.onload = (event) => {
+                setUploadedImage(event.target?.result as string);
+                setHasSignature(true);
+            };
             reader.readAsDataURL(file);
         }
     };
 
-    // Camera
     const startCamera = async () => {
+        setIsCameraActive(true);
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: isMobile ? 'environment' : 'user' }
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                setIsCameraActive(true);
             }
         } catch (err) {
-            console.error('Camera error:', err);
-            alert('Camera access denied');
-        }
-    };
-
-    const stopCamera = () => {
-        if (videoRef.current?.srcObject) {
-            (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+            console.error('Error accessing camera:', err);
             setIsCameraActive(false);
         }
     };
 
-    const captureFromCamera = () => {
-        if (!videoRef.current) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.drawImage(videoRef.current, 0, 0);
-            setUploadedImage(canvas.toDataURL('image/png'));
-            stopCamera();
+    const capturePhoto = () => {
+        if (videoRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(videoRef.current, 0, 0);
+                setUploadedImage(canvas.toDataURL('image/png'));
+                setHasSignature(true);
+                const stream = videoRef.current.srcObject as MediaStream;
+                if (stream) stream.getTracks().forEach(track => track.stop());
+                setIsCameraActive(false);
+            }
         }
     };
 
-    // Submit signature
     const submitSignature = async () => {
-        if (!sessionId) return;
-
-        setStatus('signing');
-
-        let signatureDataUrl = '';
-
-        switch (signMode) {
-            case 'draw':
-                signatureDataUrl = canvasRef.current?.toDataURL('image/png') || '';
-                break;
-            case 'type':
-                signatureDataUrl = generateTypedSignature();
-                break;
-            case 'upload':
-            case 'camera':
-                signatureDataUrl = uploadedImage || '';
-                break;
-        }
-
-        if (!signatureDataUrl) {
-            setStatus('ready');
+        if (!signerName) {
+            alert('Please enter your name');
             return;
         }
 
+        setStatus('signing');
+        let signatureDataUrl = '';
+
         try {
-            const success = SignatureService.completeSignatureSession(sessionId, signatureDataUrl, signerName);
-            if (success) {
-                setStatus('success');
-            } else {
-                setStatus('error');
+            switch (signMode) {
+                case 'draw':
+                    signatureDataUrl = canvasRef.current?.toDataURL('image/png') || '';
+                    break;
+                case 'type':
+                    signatureDataUrl = generateTypedSignature();
+                    break;
+                case 'upload':
+                case 'camera':
+                    signatureDataUrl = uploadedImage || '';
+                    break;
             }
+
+            if (!signatureDataUrl || signatureDataUrl === 'data:,') {
+                alert('Signature is empty. Please draw something first.');
+                setStatus('ready');
+                return;
+            }
+
+            // Send via PeerJS if connected
+            if (remoteSigner) {
+                console.log('[RemoteSign] Sending signature via PeerJS...');
+                remoteSigner.sendSignature(signatureDataUrl, signerName);
+            }
+
+            // ALWAYS try local completion as well (fallback + same-browser support)
+            SignatureService.completeSignatureSession(sessionId!, signatureDataUrl, signerName);
+
+            setStatus('success');
         } catch (err) {
             console.error('Failed to submit signature:', err);
-            setStatus('error');
+            setStatus('ready');
+            alert('Error submitting signature. Please try again.');
         }
     };
 
     const canSubmit = () => {
-        switch (signMode) {
-            case 'draw': return hasSignature;
-            case 'type': return typedName.trim().length > 0;
-            case 'upload':
-            case 'camera': return !!uploadedImage;
-            default: return false;
-        }
+        if (!signerName) return false;
+        if (signMode === 'draw') return hasSignature;
+        if (signMode === 'type') return typedName.length > 0;
+        return !!uploadedImage;
     };
 
-    const modes = [
-        { id: 'draw' as const, icon: PenLine, label: 'Draw' },
-        { id: 'type' as const, icon: PenLine, label: 'Type' },
-        { id: 'upload' as const, icon: Upload, label: 'Upload' },
-        { id: 'camera' as const, icon: Camera, label: 'Camera' },
-    ];
-
-    // Loading state
-    if (status === 'loading') {
+    // Error states
+    if (status === 'error') {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-                <div className="text-center">
-                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Loading signature request...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Error/Expired state
-    if (status === 'error' || status === 'expired') {
-        return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <XCircle className="w-8 h-8 text-red-500" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">
-                        {status === 'expired' ? 'Link Expired' : 'Invalid Request'}
-                    </h2>
-                    <p className="text-gray-600 mb-6">
-                        {status === 'expired'
-                            ? 'This signature link has expired. Please request a new link.'
-                            : 'This signature link is invalid or has already been used.'}
-                    </p>
-                    <button
-                        onClick={() => navigate('/')}
-                        className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium"
-                    >
-                        Go to Homepage
-                    </button>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Invalid Session</h2>
+                    <p className="text-gray-600 mb-6 font-medium">This signature link is invalid, expired, or has already been used.</p>
+                    <button onClick={() => navigate('/')} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold uppercase tracking-tight active:scale-95 transition-all">Go to Homepage</button>
                 </div>
             </div>
         );
     }
 
-    // Success state
+    if (status === 'expired') {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <XCircle className="w-8 h-8 text-amber-500" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Link Expired</h2>
+                    <p className="text-gray-600 mb-6 font-medium">This signing link has expired for security reasons.</p>
+                    <button onClick={() => navigate('/')} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold uppercase tracking-tight active:scale-95 transition-all">Go to Homepage</button>
+                </div>
+            </div>
+        );
+    }
+
     if (status === 'success') {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="w-8 h-8 text-green-500" />
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 animate-in fade-in duration-500">
+                <div className="bg-white rounded-3xl shadow-xl p-10 max-w-md w-full text-center border border-gray-100">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                        <CheckCircle className="w-10 h-10 text-green-500" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Signature Submitted!</h2>
-                    <p className="text-gray-600 mb-6">
-                        Your signature has been successfully submitted. You can close this window.
-                    </p>
-                    <button
-                        onClick={() => window.close()}
-                        className="px-6 py-3 bg-green-500 text-white rounded-xl font-medium"
-                    >
-                        Done
-                    </button>
+                    <h2 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-tight">Success!</h2>
+                    <p className="text-gray-500 mb-8 font-medium">Your signature has been securely transmitted. You can now close this window.</p>
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 mb-2">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Signed as</p>
+                        <p className="text-lg font-bold text-gray-800">{signerName}</p>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // Signing state
-    if (status === 'signing') {
-        return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-                <div className="text-center">
-                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Submitting your signature...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Ready - main signing interface
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:py-8">
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Great+Vibes&family=Homemade+Apple&family=Pacifico&display=swap');
-                .font-signature1 { font-family: 'Homemade Apple', cursive; }
-                .font-signature2 { font-family: 'Dancing Script', cursive; }
-                .font-signature3 { font-family: 'Pacifico', cursive; }
-                .font-signature4 { font-family: 'Great Vibes', cursive; }
-            `}</style>
-
-            <div className="max-w-lg mx-auto">
-                {/* Header */}
-                <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm mb-4">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                            <PenLine className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="font-bold text-gray-900">PDF PhD</span>
+        <div className="min-h-screen bg-surface-50 flex flex-col font-sans">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                        <PenLine className="w-5 h-5 text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign Document</h1>
-                    {session?.documentName && (
-                        <p className="text-gray-600">Document: {session.documentName}</p>
-                    )}
+                    <div>
+                        <h1 className="text-sm font-black text-gray-900 uppercase tracking-tight">Secure E-Sign</h1>
+                        <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${isPeerConnected ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                {isPeerConnected ? 'Connected Live' : 'Connecting...'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
+                {session?.documentName && (
+                    <div className="hidden md:block px-4 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
+                        {session.documentName}
+                    </div>
+                )}
+            </div>
 
-                {/* Main Card */}
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    {/* Name Input */}
-                    <div className="p-4 border-b border-gray-100">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
-                        <input
-                            type="text"
-                            value={signerName}
-                            onChange={(e) => setSignerName(e.target.value)}
-                            placeholder="Enter your full name"
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            {/* Main Interface */}
+            <div className="flex-1 max-w-2xl w-full mx-auto p-4 sm:p-8">
+                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden flex flex-col h-full">
+                    {/* Progress Bar */}
+                    <div className="h-1.5 w-full bg-gray-100">
+                        <div
+                            className="h-full bg-indigo-600 transition-all duration-500"
+                            style={{ width: signerName && canSubmit() ? '100%' : signerName ? '50%' : '10%' }}
                         />
                     </div>
 
-                    {/* Mode Tabs */}
-                    <div className="flex border-b border-gray-100">
-                        {modes.map((mode) => (
-                            <button
-                                key={mode.id}
-                                onClick={() => setSignMode(mode.id)}
-                                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-all ${signMode === mode.id
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500'
-                                    }`}
-                            >
-                                <mode.icon className="w-4 h-4" />
-                                {mode.label}
-                            </button>
-                        ))}
-                    </div>
+                    <div className="p-6 sm:p-10 flex-1 flex flex-col">
+                        <div className="mb-8">
+                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Your Full Name</label>
+                            <input
+                                type="text"
+                                value={signerName}
+                                onChange={(e) => {
+                                    setSignerName(e.target.value);
+                                    if (signMode === 'type' && !typedName) setTypedName(e.target.value);
+                                }}
+                                className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-lg font-bold text-gray-800 placeholder:text-gray-300"
+                                placeholder="Enter your name for the signature"
+                            />
+                        </div>
 
-                    {/* Signature Area */}
-                    <div className="p-4">
-                        {signMode === 'draw' && (
-                            <>
-                                <div
-                                    ref={containerRef}
-                                    className="border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"
-                                >
-                                    <canvas
-                                        ref={canvasRef}
-                                        onMouseDown={startDrawing}
-                                        onMouseMove={draw}
-                                        onMouseUp={stopDrawing}
-                                        onMouseLeave={stopDrawing}
-                                        onTouchStart={startDrawing}
-                                        onTouchMove={draw}
-                                        onTouchEnd={stopDrawing}
-                                        className="w-full cursor-crosshair touch-none rounded-xl"
-                                        style={{ touchAction: 'none' }}
-                                    />
+                        <div className="flex-1 flex flex-col">
+                            <div className="flex items-center justify-between mb-4">
+                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Signature</label>
+                                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+                                    {(['draw', 'type', 'upload', 'camera'] as SignMode[]).map(mode => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setSignMode(mode)}
+                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tight transition-all ${signMode === mode ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            {mode}
+                                        </button>
+                                    ))}
                                 </div>
-                                <div className="flex justify-between items-center mt-2">
-                                    <p className="text-xs text-gray-400">Draw your signature above</p>
-                                    <button onClick={clearCanvas} className="text-xs text-red-500 flex items-center gap-1">
-                                        <Trash2 className="w-3 h-3" /> Clear
-                                    </button>
-                                </div>
-                            </>
-                        )}
-
-                        {signMode === 'type' && (
-                            <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    value={typedName}
-                                    onChange={(e) => setTypedName(e.target.value)}
-                                    placeholder="Type your signature"
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500"
-                                />
-                                <div className="border-2 border-gray-200 rounded-xl p-6 bg-gray-50 text-center min-h-[100px] flex items-center justify-center">
-                                    <span className={`text-3xl ${signatureFonts[selectedFont].style}`}>
-                                        {typedName || 'Your Signature'}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedFont((p) => (p + 1) % signatureFonts.length)}
-                                    className="text-sm text-blue-500"
-                                >
-                                    Change style
-                                </button>
                             </div>
-                        )}
 
-                        {signMode === 'upload' && (
-                            <>
-                                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                                {uploadedImage ? (
-                                    <div className="text-center space-y-4">
-                                        <div className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50">
-                                            <img src={uploadedImage} alt="Signature" className="max-h-32 mx-auto" />
+                            <div className="flex-1 min-h-[250px] bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 relative group overflow-hidden transition-colors hover:border-indigo-300">
+                                {signMode === 'draw' && (
+                                    <div className="absolute inset-0 flex flex-col" ref={containerRef}>
+                                        <canvas
+                                            ref={canvasRef}
+                                            onMouseDown={startDrawing}
+                                            onMouseMove={draw}
+                                            onMouseUp={stopDrawing}
+                                            onMouseLeave={stopDrawing}
+                                            onTouchStart={startDrawing}
+                                            onTouchMove={draw}
+                                            onTouchEnd={stopDrawing}
+                                            className="flex-1 cursor-crosshair touch-none"
+                                        />
+                                        <div className="p-4 flex justify-between items-center bg-white/50 backdrop-blur-sm border-t border-gray-100">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest italic">Draw in the box above</p>
+                                            <button onClick={clearCanvas} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                        <button onClick={() => setUploadedImage(null)} className="text-sm text-red-500">
-                                            Remove
-                                        </button>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl text-center hover:border-blue-400"
-                                    >
-                                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                        <p className="text-gray-600">Upload signature image</p>
-                                    </button>
                                 )}
-                            </>
-                        )}
 
-                        {signMode === 'camera' && (
-                            <>
-                                {uploadedImage ? (
-                                    <div className="text-center space-y-4">
-                                        <div className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50">
-                                            <img src={uploadedImage} alt="Captured" className="max-h-32 mx-auto rounded" />
-                                        </div>
-                                        <button onClick={() => { setUploadedImage(null); startCamera(); }} className="text-sm text-blue-500">
-                                            Retake
-                                        </button>
+                                {signMode === 'camera' && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                                        {isCameraActive ? (
+                                            <div className="w-full h-full flex flex-col gap-4">
+                                                <div className="flex-1 bg-black rounded-2xl overflow-hidden relative">
+                                                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                                                </div>
+                                                <button
+                                                    onClick={capturePhoto}
+                                                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-tight"
+                                                >
+                                                    Capture Photo
+                                                </button>
+                                            </div>
+                                        ) : uploadedImage ? (
+                                            <div className="relative group">
+                                                <img src={uploadedImage} alt="Captured" className="max-h-[180px] object-contain" />
+                                                <button onClick={() => setUploadedImage(null)} className="absolute -top-4 -right-4 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg"><Trash2 className="w-4 h-4" /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center">
+                                                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-500">
+                                                    <Camera className="w-8 h-8" />
+                                                </div>
+                                                <button onClick={startCamera} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest">Start Camera</button>
+                                            </div>
+                                        )}
                                     </div>
-                                ) : isCameraActive ? (
-                                    <div className="space-y-4">
-                                        <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-black">
-                                            <video ref={videoRef} autoPlay playsInline className="w-full" />
-                                        </div>
-                                        <div className="flex gap-3 justify-center">
-                                            <button onClick={stopCamera} className="px-4 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
-                                            <button onClick={captureFromCamera} className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm">Capture</button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button onClick={startCamera} className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl text-center">
-                                        <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                        <p className="text-gray-600">Capture with camera</p>
-                                    </button>
                                 )}
-                            </>
-                        )}
+
+                                {signMode === 'type' && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+                                        <input
+                                            type="text"
+                                            value={typedName}
+                                            onChange={(e) => setTypedName(e.target.value)}
+                                            className="w-full text-center bg-transparent border-none outline-none text-4xl mb-8 placeholder:text-gray-200"
+                                            style={{ fontFamily: signatureFonts[selectedFont].name }}
+                                            placeholder="Your Signature"
+                                        />
+                                        <button
+                                            onClick={cycleFont}
+                                            className="px-6 py-2 bg-white rounded-full shadow-md border border-gray-100 text-xs font-bold text-gray-600 hover:bg-gray-50 active:scale-95 transition-all"
+                                        >
+                                            Change Style
+                                        </button>
+                                        <style>{`
+                                            @import url('https://fonts.googleapis.com/css2?family=Dancing+Script&family=Great+Vibes&family=Pacifico&family=Homemade+Apple&display=swap');
+                                        `}</style>
+                                    </div>
+                                )}
+
+                                {signMode === 'upload' && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+                                        {uploadedImage ? (
+                                            <div className="relative group">
+                                                <img src={uploadedImage} alt="Signature" className="max-h-[180px] object-contain" />
+                                                <button
+                                                    onClick={() => setUploadedImage(null)}
+                                                    className="absolute -top-4 -right-4 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center">
+                                                <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-500">
+                                                    <Upload className="w-8 h-8" />
+                                                </div>
+                                                <p className="text-sm font-bold text-gray-600 mb-4">Upload an image of your signature</p>
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+                                                >
+                                                    Select Image
+                                                </button>
+                                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Submit Button */}
-                    <div className="p-4 border-t border-gray-100">
+                    <div className="p-6 sm:p-10 bg-gray-50 border-t border-gray-100 flex flex-col items-center gap-6">
                         <button
                             onClick={submitSignature}
-                            disabled={!canSubmit()}
-                            className="w-full py-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
+                            disabled={!canSubmit() || status === 'signing'}
+                            className={`w-full py-5 rounded-2xl font-black text-lg uppercase tracking-tight flex items-center justify-center gap-3 transition-all shadow-xl active:scale-[0.98] ${canSubmit() && status !== 'signing' ? 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
                         >
-                            <Check className="w-5 h-5" />
-                            Submit Signature
+                            {status === 'signing' ? (
+                                <>
+                                    <Loader2 className="w-6 h-6 animate-spin" />
+                                    <span>Sending...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Check className="w-6 h-6" />
+                                    <span>Complete Signing</span>
+                                </>
+                            )}
                         </button>
+
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <Smartphone className="w-4 h-4 text-gray-400" />
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mobile Ready</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Globe className="w-4 h-4 text-gray-400" />
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Secure Sync</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                {/* Footer */}
-                <p className="text-center text-sm text-gray-500 mt-6">
-                    Your signature is securely transmitted. By signing, you agree to the document terms.
-                </p>
             </div>
         </div>
     );
 }
-
-export default RemoteSignPage;

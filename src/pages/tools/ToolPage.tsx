@@ -43,14 +43,31 @@ export function ToolPage() {
 
     const faqSchema = tool.faq.length > 0 ? getFAQSchema(tool.faq) : null;
 
-    const schemas = [breadcrumbSchema, howToSchema, ...(faqSchema ? [faqSchema] : [])];
+    // Add SoftwareApplication schema for each tool (important for rich results)
+    const softwareSchema = {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": `PDF PhD - ${tool.name}`,
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Web Browser",
+        "url": `https://pdfphd.com/tools/${tool.slug}`,
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "description": tool.metaDescription,
+        "featureList": tool.keywords.join(", ")
+    };
+
+    const schemas = [breadcrumbSchema, howToSchema, softwareSchema, ...(faqSchema ? [faqSchema] : [])];
 
     return (
         <>
             <SEOHead
-                title={`${tool.name} Online Free`}
-                description={tool.metaDescription}
-                keywords={tool.keywords}
+                title={`${tool.name} Online Free - ${tool.description} | PDF PhD`}
+                description={`${tool.metaDescription} Use PDF PhD's free ${tool.shortName.toLowerCase()} tool online. No signup, no upload to servers - 100% secure browser processing.`}
+                keywords={[...tool.keywords, 'free', 'online', 'no signup', 'secure', 'browser']}
                 canonical={`https://pdfphd.com/tools/${tool.slug}`}
                 schema={schemas}
             />
@@ -82,9 +99,11 @@ export function ToolPage() {
 
                 {/* SEO Content & Information - Moved Below */}
                 <div className="max-w-4xl mx-auto px-4 space-y-24 pb-24">
-                    {/* Long Description */}
+                    {/* H1 Title - Critical for SEO */}
                     <section>
-                        <h2 className="text-3xl font-black text-white mb-8 text-center">{tool.name}</h2>
+                        <h1 className="text-3xl md:text-4xl font-black text-white mb-8 text-center">
+                            {tool.name} Online Free
+                        </h1>
                         <div className="prose prose-invert prose-lg mx-auto">
                             <div className="text-surface-300 leading-relaxed whitespace-pre-line text-center">
                                 {tool.longDescription}
