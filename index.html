@@ -27,6 +27,11 @@
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <link rel="canonical" href="https://pdfphd.com/" />
 
+  <!-- Verification Tags - To be filled by USER from Search Console / Webmaster Tools -->
+  <meta name="msvalidate.01" content="BING_VERIFICATION_CODE" />
+  <meta name="yandex-verification" content="beacef2a3c4d071e" />
+  <meta name="google-site-verification" content="GOOGLE_VERIFICATION_CODE" />
+
   <!-- Favicon - Multiple sizes for best compatibility like Google/YouTube/Microsoft -->
   <link rel="icon" href="/favicon.ico" sizes="48x48" type="image/x-icon" />
   <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png" />
@@ -77,30 +82,112 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+  <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
+
+  <!-- Preload critical assets for Core Web Vitals -->
+  <link rel="preload" href="/logo-phd.png" as="image" type="image/png" />
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" as="script" />
+
+  <!-- Font preload for faster text rendering -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
   <style>
-    /* Critical CSS for loading */
+    /* Critical CSS for loading - LCP optimization */
     body {
       margin: 0;
       padding: 0;
       background-color: #09090b;
       color: white;
-      font-family: 'Inter', system-ui, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     #root {
       min-height: 100vh;
     }
 
-    /* Loading state */
+    /* SEO content - visible before JS loads */
+    .seo-fallback {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 24px;
+      text-align: center;
+    }
+
+    .seo-fallback h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ef4444, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 24px;
+      line-height: 1.2;
+    }
+
+    .seo-fallback p {
+      font-size: 1.25rem;
+      color: #a1a1aa;
+      max-width: 720px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+
+    .seo-fallback .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      max-width: 800px;
+      margin: 40px auto;
+    }
+
+    .seo-fallback .tool-card {
+      background: rgba(39, 39, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px 16px;
+      color: #fafafa;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .seo-fallback .tool-card:hover {
+      background: rgba(39, 39, 42, 0.8);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .seo-fallback .tool-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .seo-fallback .trust-signals {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 40px;
+      color: #71717a;
+      font-size: 0.875rem;
+    }
+
+    .seo-fallback .trust-signals span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Loading state (shown after JS starts loading) */
     .initial-loader {
       position: fixed;
       inset: 0;
-      display: flex;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       background-color: #09090b;
+      z-index: 100;
     }
 
     .loader-icon {
@@ -117,16 +204,72 @@
         transform: rotate(360deg);
       }
     }
+
+    /* 
+     * SEO fallback visibility:
+     * React's createRoot() replaces all content inside #root when it mounts.
+     * The .seo-fallback content will be naturally removed by React rendering.
+     * This ensures search engines see content, but users get the full React app.
+     */
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
 </head>
 
 <body>
   <div id="root">
-    <div class="initial-loader">
-      <img src="/logo-phd.png" alt="PDF PhD - Free Online PDF Editor"
-        style="width: 160px; height: auto; margin-bottom: 20px; border-radius: 16px; filter: drop-shadow(0 0 20px rgba(229, 57, 53, 0.3));" />
-      <div class="loader-icon"></div>
+    <!-- Static SEO fallback content - visible to search engines and before React hydrates -->
+    <div class="seo-fallback">
+      <img src="/logo-phd.png" alt="PDF PhD Logo" width="120" height="120"
+        style="border-radius: 16px; margin-bottom: 24px;" />
+
+      <h1>PDF PhD — Free Online PDF Editor</h1>
+
+      <p>
+        Edit, merge, split, compress, convert, and sign PDF files online for free.
+        All processing happens 100% locally in your browser — your files never leave your device.
+        No signup required, no watermarks, completely free.
+      </p>
+
+      <div class="tools-grid">
+        <a href="/tools/merge" class="tool-card">
+          <h3>Merge PDF</h3>
+        </a>
+        <a href="/tools/split" class="tool-card">
+          <h3>Split PDF</h3>
+        </a>
+        <a href="/tools/compress" class="tool-card">
+          <h3>Compress PDF</h3>
+        </a>
+        <a href="/tools/convert/word-to-pdf" class="tool-card">
+          <h3>Word → PDF</h3>
+        </a>
+        <a href="/tools/convert/pdf-to-word" class="tool-card">
+          <h3>PDF → Word</h3>
+        </a>
+        <a href="/tools/sign" class="tool-card">
+          <h3>Sign PDF</h3>
+        </a>
+        <a href="/tools/edit" class="tool-card">
+          <h3>Edit PDF</h3>
+        </a>
+        <a href="/tools/convert/image-to-pdf" class="tool-card">
+          <h3>Image → PDF</h3>
+        </a>
+      </div>
+
+      <div class="trust-signals">
+        <span>✓ 100% Free</span>
+        <span>🔒 No File Uploads</span>
+        <span>⚡ Instant Processing</span>
+        <span>📱 Works on Mobile</span>
+        <span>🌐 Works Offline</span>
+      </div>
+
+      <noscript>
+        <p style="margin-top: 40px; color: #fbbf24;">
+          PDF PhD requires JavaScript to run. Please enable JavaScript in your browser settings.
+        </p>
+      </noscript>
     </div>
   </div>
   <script type="module" src="/src/main.tsx"></script>

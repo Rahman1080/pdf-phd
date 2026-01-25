@@ -10,6 +10,7 @@ import './index.css'
 import {
   Landing,
   NotFound,
+  About,
   ToolsIndex,
   ToolPage,
   BlogIndex,
@@ -73,6 +74,9 @@ createRoot(document.getElementById('root')!).render(
           {/* Legal */}
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+
+          {/* About */}
+          <Route path="/about" element={<About />} />
 
           {/* Other routes */}
           <Route path="/community" element={<Community />} />

@@ -14,6 +14,15 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Force HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Direct www to non-www (match your canonical https://pdfphd.com)
+  RewriteCond %{HTTP_HOST} ^www\.pdfphd\.com [NC]
+  RewriteRule ^(.*)$ https://pdfphd.com/$1 [L,R=301]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

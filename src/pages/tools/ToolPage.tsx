@@ -111,6 +111,39 @@ export function ToolPage() {
                         </div>
                     </section>
 
+                    {/* Privacy & Security Trust Signals - Important for user confidence */}
+                    <section className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-green-900/20 to-emerald-900/20 border border-green-500/20">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                                <Check className="w-5 h-5 text-green-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Your Privacy is Protected</h3>
+                        </div>
+                        <p className="text-surface-300 mb-4 leading-relaxed">
+                            Files are processed <strong className="text-white">100% locally in your browser</strong>.
+                            Your documents are never uploaded to our servers — we physically cannot access them.
+                            This is the most secure way to {tool.shortName.toLowerCase()} PDF files online.
+                        </p>
+                        <div className="flex flex-wrap gap-4 text-sm text-surface-400">
+                            <span className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-green-400" />
+                                No upload required
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-green-400" />
+                                Works offline
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-green-400" />
+                                No account needed
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-green-400" />
+                                Completely free
+                            </span>
+                        </div>
+                    </section>
+
                     {/* How It Works */}
                     <section>
                         <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-12">
@@ -140,6 +173,11 @@ export function ToolPage() {
                             ))}
                         </div>
                     </section>
+
+                    {/* AD SLOT: In-content placement (reserved for future ad network) */}
+                    {/* <div id="ad-in-content" className="my-8 flex items-center justify-center min-h-[90px] rounded-xl bg-surface-900/50 border border-white/5">
+                        <span className="text-surface-500 text-sm">Advertisement</span>
+                    </div> */}
                 </div>
 
                 {/* Use Cases */}
